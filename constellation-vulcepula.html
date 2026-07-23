@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Constellation Vulcepula — The Astral Codex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#05060B;
+    --bg-mid:#080B14;
+    --bg-soft:#0E1021;
+    --violet:#8B5CF6;
+    --lavender:#C4B5FD;
+    --silver:#E5E7EB;
+    --serif: 'Cormorant Garamond', serif;
+    --display: 'Cinzel', serif;
+    --body: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{ background:var(--bg-deep); color:var(--silver); font-family:var(--body); overflow-x:hidden; }
+  @media (prefers-reduced-motion: reduce){ *{ transition-duration:.01ms !important; } }
+
+  #scene-canvas{ position:fixed; inset:0; z-index:0; display:block; }
+
+  .veil{
+    position:fixed; inset:0; z-index:1; pointer-events:none;
+    background: radial-gradient(ellipse at center, transparent 35%, rgba(5,6,11,0.55) 100%);
+  }
+
+  header{
+    position:fixed; top:0; left:0; right:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 26px 6vw;
+  }
+  .logo{ font-family: var(--display); font-size:.9rem; letter-spacing:.18em; text-transform:uppercase; color:var(--silver); text-decoration:none; display:flex; align-items:center; gap:10px; }
+  .logo svg{ width:18px; height:18px; }
+  a.back{ color: rgba(229,231,235,0.7); text-decoration:none; font-size:.75rem; letter-spacing:.14em; text-transform:uppercase; border:1px solid rgba(139,92,246,0.3); padding:9px 18px; border-radius:30px; transition: all .3s ease; backdrop-filter: blur(6px); }
+  a.back:hover{ color:#fff; border-color: var(--violet); background: rgba(139,92,246,0.12); }
+
+  .hud{
+    position:fixed; z-index:20; left:6vw; bottom:8vh;
+    max-width: 420px;
+  }
+  .hud .eyebrow{ font-family:var(--display); font-size:.68rem; letter-spacing:.3em; text-transform:uppercase; color:var(--lavender); opacity:.85; }
+  .hud .eyebrow::before{ content:'✦ '; color:var(--violet); }
+  .hud h1{ font-family:var(--display); font-weight:600; font-size: clamp(1.7rem,3.4vw,2.6rem); margin: .7rem 0 .9rem; line-height:1.15;
+    background: linear-gradient(180deg,#fff, var(--lavender)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .hud p{ font-family:var(--serif); font-size:1.08rem; line-height:1.7; color: rgba(229,231,235,0.82); min-height: 3.4em; }
+
+  .stage-label{
+    position:fixed; top:14vh; right:6vw; z-index:20; text-align:right;
+  }
+  .stage-label .n{ font-family:var(--display); font-size:.7rem; letter-spacing:.3em; color:rgba(196,181,253,0.55); text-transform:uppercase; }
+  .stage-label .t{ font-family:var(--serif); font-style:italic; font-size:1.3rem; color:var(--silver); margin-top:.35rem; }
+
+  .progress-rail{
+    position:fixed; right:6vw; bottom:8vh; z-index:20;
+    display:flex; flex-direction:column; gap:14px; align-items:flex-end;
+  }
+  .dot-btn{
+    width:11px; height:11px; border-radius:50%; border:1px solid rgba(196,181,253,0.45);
+    background:transparent; cursor:pointer; transition: all .35s ease; padding:0;
+  }
+  .dot-btn.active{ background: var(--violet); border-color: var(--violet); box-shadow: 0 0 14px rgba(139,92,246,0.8); transform:scale(1.2); }
+  .dot-btn:hover{ border-color: var(--lavender); }
+
+  .scrub{
+    position:fixed; left:0; right:0; bottom:0; z-index:25; height:4px;
+    background: rgba(255,255,255,0.06);
+  }
+  .scrub-fill{ height:100%; background: linear-gradient(90deg, var(--violet), var(--lavender)); width:0%; transition: width .1s linear; }
+
+  .instructions{
+    position:fixed; top: 50%; left:50%; transform: translate(-50%,-50%);
+    z-index:15; text-align:center; pointer-events:none; opacity:0; transition: opacity .6s ease;
+  }
+  .instructions.show{ opacity:1; }
+  .instructions span{ font-family:var(--display); font-size:.7rem; letter-spacing:.3em; text-transform:uppercase; color: rgba(196,181,253,0.5); }
+
+  .scroll-catcher{ position:relative; z-index:-1; width:100%; height: 500vh; }
+
+  @media (max-width: 780px){
+    .stage-label{ display:none; }
+    .hud{ max-width: 78vw; bottom:12vh; }
+    .progress-rail{ right:5vw; bottom:12vh; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene-canvas"></canvas>
+<div class="veil"></div>
+
+<header>
+  <a class="logo" href="#">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l1.5 6L20 9l-6.5 1L12 16l-1.5-6L4 9l6.5-1L12 2z" fill="#8B5CF6"/></svg>
+    Shadastria Adepti
+  </a>
+  <a class="back" href="shadastria-adepti.html">Return to the Codex</a>
+</header>
+
+<div class="stage-label">
+  <div class="n" id="stageN">Stage I</div>
+  <div class="t" id="stageT">Scattered Light</div>
+</div>
+
+<div class="hud">
+  <span class="eyebrow">Constellation Vulcepula</span>
+  <h1 id="hudTitle">A Single Star</h1>
+  <p id="hudText">Before the Adepti, before the Codex, there was only light&mdash;countless points scattered across the dark, unnamed and unconnected.</p>
+</div>
+
+<div class="progress-rail">
+  <button class="dot-btn active" data-stage="0" aria-label="Stage 1"></button>
+  <button class="dot-btn" data-stage="1" aria-label="Stage 2"></button>
+  <button class="dot-btn" data-stage="2" aria-label="Stage 3"></button>
+  <button class="dot-btn" data-stage="3" aria-label="Stage 4"></button>
+</div>
+
+<div class="instructions" id="instructions"><span>Scroll to trace the constellation</span></div>
+
+<div class="scrub"><div class="scrub-fill" id="scrubFill"></div></div>
+<div class="scroll-catcher" id="scrollCatcher"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+/* ======================================================================
+   CONSTELLATION VULCEPULA — 3D scroll-driven morph
+   Stage 0: scattered starfield (chaos)
+   Stage 1: stars drift into the Vulcepula asterism (points + lines)
+   Stage 2: the asterism thickens into a wireframe fox skeleton
+   Stage 3: the fox resolves into a solid, glowing low-poly 3D form
+   ====================================================================== */
+
+const canvas = document.getElementById('scene-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x05060B, 0.02);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 34);
+
+// ambient starfield background (far, non-morphing, pure atmosphere)
+function makeBackdrop(count, spread, size, color, opacity){
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count*3);
+  for(let i=0;i<count;i++){
+    pos[i*3]   = (Math.random()-0.5)*spread;
+    pos[i*3+1] = (Math.random()-0.5)*spread;
+    pos[i*3+2] = (Math.random()-0.5)*spread - 20;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  const mat = new THREE.PointsMaterial({ color, size, transparent:true, opacity, depthWrite:false, blending:THREE.AdditiveBlending });
+  return new THREE.Points(geo, mat);
+}
+const backdrop1 = makeBackdrop(900, 220, 0.5, 0xC4B5FD, 0.55);
+const backdrop2 = makeBackdrop(500, 320, 0.3, 0x8B5CF6, 0.35);
+scene.add(backdrop1, backdrop2);
+
+// lights for the solid fox stage
+const keyLight = new THREE.PointLight(0x8B5CF6, 0, 100);
+keyLight.position.set(12, 14, 20);
+scene.add(keyLight);
+const rimLight = new THREE.PointLight(0xC4B5FD, 0, 100);
+rimLight.position.set(-14, -6, -10);
+scene.add(rimLight);
+const ambient = new THREE.AmbientLight(0x30204f, 0);
+scene.add(ambient);
+
+/* ---------------- Vulcepula asterism (7 named points, hand-authored) ---------------- */
+const asterism = [
+  [-9,  3, 0],   // 0 tail
+  [-4,  6, 1],   // 1 haunch
+  [ 0,  5, 0],   // 2 shoulder
+  [ 3,  8, -1],  // 3 ear tip
+  [ 6,  4, 0],   // 4 muzzle
+  [-2,  0, 1],   // 5 chest
+  [ 1, -3, 0]    // 6 forepaw
+];
+const asterismLines = [[0,1],[1,2],[2,3],[2,4],[2,5],[5,6]];
+
+/* ---------------- Fox anatomy (standing/alert pose, modeled on the reference art) ---------------- */
+// Chains of {p:[x,y,z], r:radius} describing the spine/tail/legs/ears as tapered limbs.
+// Pose: body level, head lifted high and alert, neck extended upward, one front paw raised
+// mid-step, rear legs planted, tail hanging and curving back with a lighter tip.
+const ANAT = {
+  spine: [
+    {p:[-7.5,-0.5, 0.0], r:0.7 },  // haunch / tail-base
+    {p:[-5.5, 0.8, 0.0], r:1.1 },  // rear back
+    {p:[-2.0, 1.2, 0.0], r:1.4 },  // mid back
+    {p:[ 1.5, 1.3, 0.0], r:1.4 },  // shoulder
+    {p:[ 3.5, 1.8, 0.0], r:1.0 },  // neck base
+    {p:[ 4.3, 3.5, 0.0], r:0.85},  // neck (raised)
+    {p:[ 5.0, 4.6, 0.0], r:0.7 },  // head
+    {p:[ 6.3, 4.0, 0.0], r:0.24}   // nose tip
+  ],
+  earL: [{p:[4.7, 5.2, 0.35], r:0.48}, {p:[4.9, 6.6, 0.5], r:0.04}],
+  earR: [{p:[4.7, 5.2,-0.35], r:0.48}, {p:[4.9, 6.6,-0.5], r:0.04}],
+  tail: [
+    {p:[-7.5,-0.5, 0.0],  r:0.85},
+    {p:[-8.8,-2.2,-0.2],  r:1.05},
+    {p:[-9.0,-4.0,-0.3],  r:0.95},
+    {p:[-7.8,-5.2,-0.3],  r:0.55},
+    {p:[-6.3,-5.6,-0.2],  r:0.22}   // light tip
+  ],
+  // front-right: raised, reaching mid-step; front-left: planted
+  legFR: [{p:[3.0, 1.2, 0.6],r:0.48}, {p:[3.6,-1.0, 0.5],r:0.38}, {p:[4.6,-1.6, 0.45],r:0.22}],
+  legFL: [{p:[3.0, 1.2,-0.6],r:0.48}, {p:[2.8,-1.3,-0.5],r:0.38}, {p:[2.6,-3.0,-0.45],r:0.22}],
+  legBR: [{p:[-5.5, 0.7, 0.6],r:0.5 }, {p:[-5.2,-1.4, 0.5],r:0.4 }, {p:[-4.8,-3.0, 0.45],r:0.22}],
+  legBL: [{p:[-5.5, 0.7,-0.6],r:0.5 }, {p:[-6.0,-1.3,-0.5],r:0.4 }, {p:[-6.3,-3.0,-0.45],r:0.22}]
+};
+
+// Scatter n points along a chain, biased toward the surface of the tapered tube it describes.
+function sampleChain(chain, count){
+  const segLens = [];
+  let total = 0;
+  for(let i=0;i<chain.length-1;i++){
+    const a=chain[i].p, b=chain[i+1].p;
+    const d = Math.hypot(b[0]-a[0], b[1]-a[1], b[2]-a[2]);
+    segLens.push(d); total += d;
+  }
+  const pts = [];
+  for(let i=0;i<count;i++){
+    let d = Math.random()*total, seg = 0;
+    while(seg < segLens.length-1 && d > segLens[seg]){ d -= segLens[seg]; seg++; }
+    const t = segLens[seg] > 0 ? d/segLens[seg] : 0;
+    const a = chain[seg], b = chain[seg+1];
+    const x = a.p[0]+(b.p[0]-a.p[0])*t, y = a.p[1]+(b.p[1]-a.p[1])*t, z = a.p[2]+(b.p[2]-a.p[2])*t;
+    const r = a.r+(b.r-a.r)*t;
+    const theta = Math.random()*Math.PI*2, phi = Math.acos(2*Math.random()-1);
+    const rad = r*(0.5+0.5*Math.random());
+    pts.push(new THREE.Vector3(
+      x + rad*Math.sin(phi)*Math.cos(theta),
+      y + rad*Math.sin(phi)*Math.sin(theta),
+      z + rad*Math.cos(phi)
+    ));
+  }
+  return pts;
+}
+
+function buildFoxPoints(density){
+  const pts = [];
+  const alloc = (frac, chain)=> pts.push(...sampleChain(chain, Math.round(density*frac)));
+  alloc(0.42, ANAT.spine);
+  alloc(0.05, ANAT.earL);
+  alloc(0.05, ANAT.earR);
+  alloc(0.16, ANAT.tail);
+  alloc(0.08, ANAT.legFR);
+  alloc(0.08, ANAT.legFL);
+  alloc(0.08, ANAT.legBR);
+  alloc(0.08, ANAT.legBL);
+  return pts;
+}
+
+const DENSITY = 1800;
+const foxPoints = buildFoxPoints(DENSITY);
+
+/* ---------------- unify particle counts across all stages ---------------- */
+const N = Math.max(foxPoints.length, 1400);
+
+function scatteredPositions(n){
+  const arr = new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    const r = 16 + Math.random()*10;
+    const t = Math.random()*Math.PI*2, p = Math.acos(2*Math.random()-1);
+    arr[i*3]   = r*Math.sin(p)*Math.cos(t);
+    arr[i*3+1] = r*Math.sin(p)*Math.sin(t);
+    arr[i*3+2] = r*Math.cos(p) - 5;
+  }
+  return arr;
+}
+
+function asterismPositions(n){
+  const arr = new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    if(i < asterism.length){
+      // exact star nodes get priority slots
+      const [x,y,z] = asterism[i];
+      arr[i*3]=x; arr[i*3+1]=y; arr[i*3+2]=z;
+    } else {
+      // remaining points scattered along the connecting lines, like starlit dust tracing the shape
+      const seg = asterismLines[Math.floor(Math.random()*asterismLines.length)];
+      const [ax,ay,az] = asterism[seg[0]];
+      const [bx,by,bz] = asterism[seg[1]];
+      const u = Math.random();
+      const jitter = ()=> (Math.random()-0.5)*0.5;
+      arr[i*3]   = ax + (bx-ax)*u + jitter();
+      arr[i*3+1] = ay + (by-ay)*u + jitter();
+      arr[i*3+2] = az + (bz-az)*u + jitter();
+    }
+  }
+  return arr;
+}
+
+function foxSkeletonPositions(n){
+  // sparser, wireframe-like: snap to a reduced set of fox points with slight outward jitter
+  const arr = new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    const p = foxPoints[i % foxPoints.length];
+    const j = 0.35;
+    arr[i*3]   = p.x + (Math.random()-0.5)*j;
+    arr[i*3+1] = p.y + (Math.random()-0.5)*j;
+    arr[i*3+2] = p.z + (Math.random()-0.5)*j;
+  }
+  return arr;
+}
+
+function foxSolidPositions(n){
+  const arr = new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    const p = foxPoints[i % foxPoints.length];
+    arr[i*3]=p.x; arr[i*3+1]=p.y; arr[i*3+2]=p.z;
+  }
+  return arr;
+}
+
+const stagePositions = [
+  scatteredPositions(N),
+  asterismPositions(N),
+  foxSkeletonPositions(N),
+  foxSolidPositions(N)
+];
+
+/* ---------------- particle system (morphs between stage arrays) ---------------- */
+const geometry = new THREE.BufferGeometry();
+const current = new Float32Array(stagePositions[0]);
+geometry.setAttribute('position', new THREE.BufferAttribute(current, 3));
+
+const sizes = new Float32Array(N);
+for(let i=0;i<N;i++) sizes[i] = 0.22 + Math.random()*0.3;
+geometry.setAttribute('size', new THREE.BufferAttribute(sizes,1));
+
+const particleMat = new THREE.PointsMaterial({
+  color: 0xC4B5FD,
+  size: 0.35,
+  transparent: true,
+  opacity: 0.95,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  sizeAttenuation: true
+});
+const particles = new THREE.Points(geometry, particleMat);
+scene.add(particles);
+
+// connecting lines for the asterism stage
+const lineGeo = new THREE.BufferGeometry();
+const linePositions = new Float32Array(asterismLines.length * 2 * 3);
+asterismLines.forEach(([a,b], i)=>{
+  const [ax,ay,az]=asterism[a], [bx,by,bz]=asterism[b];
+  linePositions[i*6]=ax; linePositions[i*6+1]=ay; linePositions[i*6+2]=az;
+  linePositions[i*6+3]=bx; linePositions[i*6+4]=by; linePositions[i*6+5]=bz;
+});
+lineGeo.setAttribute('position', new THREE.BufferAttribute(linePositions,3));
+const lineMat = new THREE.LineBasicMaterial({ color:0x8B5CF6, transparent:true, opacity:0, blending:THREE.AdditiveBlending });
+const asterismLinesMesh = new THREE.LineSegments(lineGeo, lineMat);
+scene.add(asterismLinesMesh);
+
+// solid fox mesh (revealed only at final stage) — loaded from a real 3D model
+// (ImageToStl_com_fox.gltf) instead of the old procedural low-poly chain-of-cylinders fox.
+const foxGroup = new THREE.Group();
+const foxMeshes = [];
+
+const gltfLoader = new THREE.GLTFLoader();
+gltfLoader.load(
+  'ImageToStl_com_fox.gltf',
+  (gltf) => {
+    const model = gltf.scene;
+
+    // center the model on its own origin, then scale it to roughly match the
+    // footprint of the point-cloud/asterism fox (~15 units across its longest axis)
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const center = new THREE.Vector3(); box.getCenter(center);
+    model.position.sub(center);
+
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const targetSize = 15;
+    model.scale.setScalar(targetSize / maxDim);
+
+    // ImageToStl exports are typically Z-up; rotate onto Three.js's Y-up convention.
+    // Adjust this if the fox looks tipped over once you see it rendered.
+    model.rotation.x = -Math.PI / 2;
+
+    model.traverse((child) => {
+      if(child.isMesh){
+        child.material = child.material.clone();
+        child.material.transparent = true;
+        child.material.opacity = 0;
+        if('emissive' in child.material){
+          child.material.emissive = new THREE.Color(0x8B5CF6);
+          child.material.emissiveIntensity = 0.15;
+        }
+        child.material.roughness = 0.45;
+        child.material.metalness = 0.3;
+        foxMeshes.push(child);
+      }
+    });
+
+    foxGroup.add(model);
+  },
+  undefined,
+  (err) => console.error('Failed to load fox GLTF model:', err)
+);
+
+foxGroup.visible = true;
+scene.add(foxGroup);
+
+/* ---------------- copy / stage metadata ---------------- */
+const stages = [
+  { n:'Stage I',  t:'Scattered Light', title:'A Single Star',
+    text:'Before the Adepti, before the Codex, there was only light&mdash;countless points scattered across the dark, unnamed and unconnected.' },
+  { n:'Stage II', t:'The Asterism', title:'Vulcepula Takes Form',
+    text:'Seven stars draw together across the void. Where lines cross, the first Adepti read a shape, and gave the shape a name.' },
+  { n:'Stage III', t:'The Sacred Vessel', title:'Bone of Starlight',
+    text:'The asterism deepens into form&mdash;a skeleton of light, the fox-spirit of Vulcepula gathering itself out of scattered dust.' },
+  { n:'Stage IV', t:'Vulcepula Ascendant', title:'The Fox Among the Stars',
+    text:'Whole at last: Vulcepula, guardian of the Astral Codex, standing between shadow and starlight&mdash;per umbram ad astra.' }
+];
+const hudTitle = document.getElementById('hudTitle');
+const hudText = document.getElementById('hudText');
+const stageN = document.getElementById('stageN');
+const stageT = document.getElementById('stageT');
+const dots = document.querySelectorAll('.dot-btn');
+const scrubFill = document.getElementById('scrubFill');
+const instructions = document.getElementById('instructions');
+setTimeout(()=>instructions.classList.add('show'), 800);
+
+function lerp(a,b,t){ return a+(b-a)*t; }
+function easeInOutCubic(t){ return t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
+
+let lastStageIdx = -1;
+function setStageUI(idx){
+  if(idx === lastStageIdx) return;
+  lastStageIdx = idx;
+  const s = stages[idx];
+  stageN.textContent = s.n; stageT.textContent = s.t;
+  hudTitle.textContent = s.title;
+  hudText.innerHTML = s.text;
+  dots.forEach((d,i)=> d.classList.toggle('active', i===idx));
+  instructions.classList.remove('show');
+}
+
+/* ---------------- scroll-driven progress (0 -> 3) ---------------- */
+const scrollCatcher = document.getElementById('scrollCatcher');
+let targetProgress = 0, progress = 0;
+
+function updateFromScroll(){
+  const max = scrollCatcher.offsetHeight - innerHeight;
+  const p = Math.min(Math.max(window.scrollY / max, 0), 1);
+  targetProgress = p * 3; // 0..3 across 4 stages
+}
+window.addEventListener('scroll', updateFromScroll, {passive:true});
+updateFromScroll();
+
+dots.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const st = parseInt(btn.dataset.stage,10);
+    const max = scrollCatcher.offsetHeight - innerHeight;
+    window.scrollTo({ top: (st/3)*max, behavior:'smooth' });
+  });
+});
+
+/* ---------------- pointer parallax ---------------- */
+let px=0, py=0;
+window.addEventListener('mousemove', e=>{
+  px = (e.clientX/innerWidth - 0.5);
+  py = (e.clientY/innerHeight - 0.5);
+});
+
+/* ---------------- render loop ---------------- */
+const posAttr = geometry.attributes.position;
+let t0 = performance.now();
+
+function frame(){
+  const now = performance.now();
+  const dt = (now-t0)/1000; t0 = now;
+
+  progress = lerp(progress, targetProgress, 0.07);
+  const stageIdx = Math.min(3, Math.floor(progress));
+  const localT = easeInOutCubic(progress - stageIdx);
+  setStageUI(Math.min(3, Math.round(progress)));
+  scrubFill.style.width = (Math.min(progress,3)/3*100) + '%';
+
+  const from = stagePositions[Math.min(stageIdx,3)];
+  const to = stagePositions[Math.min(stageIdx+1,3)];
+  const arr = posAttr.array;
+  for(let i=0;i<N;i++){
+    arr[i*3]   = lerp(from[i*3],   to[i*3],   localT);
+    arr[i*3+1] = lerp(from[i*3+1], to[i*3+1], localT);
+    arr[i*3+2] = lerp(from[i*3+2], to[i*3+2], localT);
+  }
+  posAttr.needsUpdate = true;
+
+  // asterism lines fade in during stage 1->2 transition window, fade out after
+  const lineOpacity = Math.max(0, 1 - Math.abs(progress - 1.4) * 1.4);
+  lineMat.opacity = Math.min(0.65, lineOpacity);
+
+  // particles fade down as solid fox takes over in final stage
+  const particleFade = 1 - Math.max(0, (progress - 2.55) / 0.45);
+  particleMat.opacity = Math.max(0.08, Math.min(0.95, particleFade));
+
+  // fox mesh reveal
+  const foxReveal = Math.max(0, (progress - 2.5) / 0.5);
+  const fr = easeInOutCubic(Math.min(1,foxReveal));
+  foxMeshes.forEach(m=>{ m.material.opacity = fr*0.94; m.material.emissiveIntensity = 0.15 + fr*0.55; });
+  keyLight.intensity = fr * 2.4;
+  rimLight.intensity = fr * 1.6;
+  ambient.intensity = fr * 0.6;
+
+  // gentle continuous rotation + parallax
+  const rotBase = now*0.00006;
+  particles.rotation.y = rotBase + px*0.4;
+  particles.rotation.x = py*0.2;
+  asterismLinesMesh.rotation.copy(particles.rotation);
+  foxGroup.rotation.y = rotBase + px*0.4 + Math.PI*0.08;
+  foxGroup.rotation.x = py*0.2;
+
+  backdrop1.rotation.y += 0.00008;
+  backdrop2.rotation.y -= 0.00005;
+
+  camera.position.x = lerp(camera.position.x, px*3, 0.05);
+  camera.position.y = lerp(camera.position.y, -py*2, 0.05);
+  camera.lookAt(0,0,0);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  updateFromScroll();
+});
+</script>
+</body>
+</html>
